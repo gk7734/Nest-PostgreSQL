@@ -3,10 +3,14 @@ import { User } from "./entity/user.entity";
 import { ConflictException, Injectable, InternalServerErrorException, UnauthorizedException } from "@nestjs/common";
 import { AuthCredentialDto } from "./dto/auth-credential.dto";
 import * as bcrypt from "bcrypt";
+import { JwtService } from "@nestjs/jwt";
 
 @Injectable()
 export class UserRepository extends Repository<User> {
-  constructor(dataSource: DataSource) {
+  constructor(
+    private jwtService: JwtService,
+    dataSource: DataSource
+  ) {
     super(User, dataSource.createEntityManager());
   }
 
@@ -29,12 +33,15 @@ export class UserRepository extends Repository<User> {
     }
   }
 
-  async loginUser(authCredentialDto: AuthCredentialDto): Promise<string> {
+  async loginUser(authCredentialDto: AuthCredentialDto): Promise<{ accessToken: string }> {
     const { username, password } = authCredentialDto;
     const user = await this.findOneBy({ username });
 
     if (user && (await bcrypt.compare(password, user.password))) {
-      return 'login success'
+      const payload ={ username };
+      const accessToken = this.jwtService.sign(payload);
+
+      return { accessToken };
     } else {
       throw new UnauthorizedException('login failed');
     }
